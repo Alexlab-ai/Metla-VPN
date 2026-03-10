@@ -7,13 +7,17 @@ on:
         description: 'Server IP address'
         required: true
         type: string
+      domain:
+        description: 'Domain name (e.g. vpn.example.com) — must have A-record pointing to server IP'
+        required: true
+        type: string
       server_user:
         description: 'SSH user'
         required: false
         default: 'root'
         type: string
       panel_port:
-        description: 'Panel port (default: 8080)'
+        description: 'Internal panel port (default: 8080)'
         required: false
         default: '8080'
         type: string
@@ -25,6 +29,7 @@ on:
           - install
           - update
           - restart
+          - renew-ssl
           - status
 
 jobs:
@@ -35,7 +40,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Marzban on server
+      - name: Install Marzban with domain & SSL
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ inputs.server_host }}
@@ -51,11 +56,12 @@ jobs:
             apt-get update -y && apt-get install -y git
             git clone --depth 1 https://github.com/${{ github.repository }}.git "$TEMP_DIR"
 
-            # Run Marzban install
+            # Run Marzban install with domain
             chmod +x "$TEMP_DIR/deploy/marzban/setup.sh"
             bash "$TEMP_DIR/deploy/marzban/setup.sh" \
               "${{ secrets.MARZBAN_ADMIN_USER }}" \
               "${{ secrets.MARZBAN_ADMIN_PASS }}" \
+              "${{ inputs.domain }}" \
               "${{ inputs.panel_port }}"
 
             rm -rf "$TEMP_DIR"
@@ -64,16 +70,14 @@ jobs:
         run: |
           echo "============================================"
           echo "  Marzban Panel installed!"
-          echo "  URL: http://${{ inputs.server_host }}:${{ inputs.panel_port }}"
+          echo ""
+          echo "  Panel:   https://${{ inputs.domain }}/dashboard/"
+          echo "  Sub URL: https://${{ inputs.domain }}/sub/"
+          echo "  SSL:     Let's Encrypt (auto-renew)"
           echo "============================================"
           echo ""
-          echo "Don't forget to add these secrets:"
-          echo "  MARZBAN_WEB_ADMIN=http://${{ inputs.server_host }}:${{ inputs.panel_port }}/"
-          echo ""
-          echo "And update .env on bot server:"
-          echo "  MARZBAN_WEB_ADMIN=http://${{ inputs.server_host }}:${{ inputs.panel_port }}/"
-          echo "  MARZBAN_LOGIN=<your admin user>"
-          echo "  MARZBAN_PASSWORD=<your admin password>"
+          echo "Update bot .env with:"
+          echo "  MARZBAN_WEB_ADMIN=https://${{ inputs.domain }}/"
 
   manage-marzban:
     runs-on: ubuntu-latest
@@ -87,11 +91,12 @@ jobs:
           key: ${{ secrets.MAIN_SSH_PRIVATE_KEY }}
           script: |
             ACTION="${{ inputs.action }}"
-            cd /opt/Marzban
+            DOMAIN="${{ inputs.domain }}"
 
             case "$ACTION" in
               update)
                 echo "=== Updating Marzban ==="
+                cd /opt/Marzban
                 docker compose pull
                 docker compose down
                 docker compose up -d
@@ -100,14 +105,31 @@ jobs:
                 echo "=== Update complete ==="
                 ;;
               restart)
-                echo "=== Restarting Marzban ==="
+                echo "=== Restarting Marzban + Nginx ==="
+                cd /opt/Marzban
                 docker compose restart
+                systemctl reload nginx
                 sleep 5
                 docker compose ps
+                systemctl status nginx --no-pager | head -5
+                ;;
+              renew-ssl)
+                echo "=== Renewing SSL Certificate ==="
+                certbot renew --force-renewal
+                systemctl reload nginx
+                echo ""
+                certbot certificates
+                echo "=== SSL renewed ==="
                 ;;
               status)
                 echo "=== Marzban Status ==="
-                docker compose ps
+                cd /opt/Marzban && docker compose ps
+                echo ""
+                echo "=== Nginx Status ==="
+                systemctl status nginx --no-pager | head -5
+                echo ""
+                echo "=== SSL Certificate ==="
+                certbot certificates 2>/dev/null | grep -A3 "Certificate Name" || echo "No certs found"
                 echo ""
                 echo "=== Disk Usage ==="
                 df -h /
@@ -116,6 +138,6 @@ jobs:
                 free -h
                 echo ""
                 echo "=== Last 20 log lines ==="
-                docker compose logs --tail 20
+                cd /opt/Marzban && docker compose logs --tail 20
                 ;;
             esac

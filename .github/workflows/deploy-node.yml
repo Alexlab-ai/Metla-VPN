@@ -1,0 +1,84 @@
+name: Deploy Marzban Node
+
+on:
+  workflow_dispatch:
+    inputs:
+      node_host:
+        description: 'Node server IP address'
+        required: true
+        type: string
+      node_user:
+        description: 'SSH user (default: root)'
+        required: false
+        default: 'root'
+        type: string
+      node_name:
+        description: 'Node name (e.g. germany-1, netherlands-1)'
+        required: true
+        type: string
+
+jobs:
+  deploy-node:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy Marzban-node via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ inputs.node_host }}
+          username: ${{ inputs.node_user }}
+          key: ${{ secrets.NODE_SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            # Download and run setup script
+            export DEBIAN_FRONTEND=noninteractive
+
+            # Install git if missing
+            apt-get update -y && apt-get install -y git curl
+
+            # Clone repo for setup script
+            TEMP_DIR=$(mktemp -d)
+            git clone --depth 1 https://github.com/${{ github.repository }}.git "$TEMP_DIR"
+
+            # Run node setup
+            chmod +x "$TEMP_DIR/deploy/node/setup.sh"
+            bash "$TEMP_DIR/deploy/node/setup.sh" "${{ secrets.MARZBAN_NODE_CERT }}"
+
+            # Cleanup
+            rm -rf "$TEMP_DIR"
+
+            echo "Node ${{ inputs.node_name }} deployed successfully!"
+
+      - name: Verify node is running
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ inputs.node_host }}
+          username: ${{ inputs.node_user }}
+          key: ${{ secrets.NODE_SSH_PRIVATE_KEY }}
+          script: |
+            echo "=== Docker Status ==="
+            cd /opt/Marzban-node && docker compose ps
+            echo ""
+            echo "=== Port Check ==="
+            ss -tlnp | grep -E '62050|62051'
+            echo ""
+            echo "=== Node is ready! ==="
+            echo "Add this IP (${{ inputs.node_host }}) to Marzban panel -> Nodes"
+
+  update-node:
+    runs-on: ubuntu-latest
+    if: false  # Enable manually when needed
+    steps:
+      - name: Update Marzban-node
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ inputs.node_host }}
+          username: ${{ inputs.node_user }}
+          key: ${{ secrets.NODE_SSH_PRIVATE_KEY }}
+          script: |
+            cd /opt/Marzban-node
+            docker compose pull
+            docker compose up -d
+            docker compose ps

@@ -1,0 +1,121 @@
+name: Install Marzban Panel
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_host:
+        description: 'Server IP address'
+        required: true
+        type: string
+      server_user:
+        description: 'SSH user'
+        required: false
+        default: 'root'
+        type: string
+      panel_port:
+        description: 'Panel port (default: 8080)'
+        required: false
+        default: '8080'
+        type: string
+      action:
+        description: 'Action'
+        required: true
+        type: choice
+        options:
+          - install
+          - update
+          - restart
+          - status
+
+jobs:
+  install-marzban:
+    runs-on: ubuntu-latest
+    if: inputs.action == 'install'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Marzban on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ inputs.server_host }}
+          username: ${{ inputs.server_user }}
+          key: ${{ secrets.MAIN_SSH_PRIVATE_KEY }}
+          command_timeout: 15m
+          script_stop: true
+          script: |
+            export DEBIAN_FRONTEND=noninteractive
+
+            # Download setup script
+            TEMP_DIR=$(mktemp -d)
+            apt-get update -y && apt-get install -y git
+            git clone --depth 1 https://github.com/${{ github.repository }}.git "$TEMP_DIR"
+
+            # Run Marzban install
+            chmod +x "$TEMP_DIR/deploy/marzban/setup.sh"
+            bash "$TEMP_DIR/deploy/marzban/setup.sh" \
+              "${{ secrets.MARZBAN_ADMIN_USER }}" \
+              "${{ secrets.MARZBAN_ADMIN_PASS }}" \
+              "${{ inputs.panel_port }}"
+
+            rm -rf "$TEMP_DIR"
+
+      - name: Output panel info
+        run: |
+          echo "============================================"
+          echo "  Marzban Panel installed!"
+          echo "  URL: http://${{ inputs.server_host }}:${{ inputs.panel_port }}"
+          echo "============================================"
+          echo ""
+          echo "Don't forget to add these secrets:"
+          echo "  MARZBAN_WEB_ADMIN=http://${{ inputs.server_host }}:${{ inputs.panel_port }}/"
+          echo ""
+          echo "And update .env on bot server:"
+          echo "  MARZBAN_WEB_ADMIN=http://${{ inputs.server_host }}:${{ inputs.panel_port }}/"
+          echo "  MARZBAN_LOGIN=<your admin user>"
+          echo "  MARZBAN_PASSWORD=<your admin password>"
+
+  manage-marzban:
+    runs-on: ubuntu-latest
+    if: inputs.action != 'install'
+    steps:
+      - name: Manage Marzban
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ inputs.server_host }}
+          username: ${{ inputs.server_user }}
+          key: ${{ secrets.MAIN_SSH_PRIVATE_KEY }}
+          script: |
+            ACTION="${{ inputs.action }}"
+            cd /opt/Marzban
+
+            case "$ACTION" in
+              update)
+                echo "=== Updating Marzban ==="
+                docker compose pull
+                docker compose down
+                docker compose up -d
+                sleep 5
+                docker compose ps
+                echo "=== Update complete ==="
+                ;;
+              restart)
+                echo "=== Restarting Marzban ==="
+                docker compose restart
+                sleep 5
+                docker compose ps
+                ;;
+              status)
+                echo "=== Marzban Status ==="
+                docker compose ps
+                echo ""
+                echo "=== Disk Usage ==="
+                df -h /
+                echo ""
+                echo "=== Memory ==="
+                free -h
+                echo ""
+                echo "=== Last 20 log lines ==="
+                docker compose logs --tail 20
+                ;;
+            esac

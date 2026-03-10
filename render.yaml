@@ -1,0 +1,191 @@
+# Render Blueprint — Metla VPN
+# https://render.com/docs/blueprint-spec
+#
+# Deployment scheme:
+#   1. "metla-vpn-web"  — Web Service (subscription URLs + YooKassa webhooks)
+#   2. "metla-vpn-bot"  — Background Worker (Telegram bot)
+#   3. "metla-vpn-cron" — Background Worker (subscription expiry notifications + spam)
+#   4. PostgreSQL — Managed database on Render
+#
+# Your Marzban/XRay VLESS server stays on a separate VPS.
+# Set MARZBAN_WEB_ADMIN to its address, e.g. https://your-vps-ip:8080/
+
+databases:
+  - name: metla-vpn-db
+    plan: free # or starter/standard for production
+    databaseName: metlavpn
+    user: metlavpn
+
+services:
+  # 1. Web Service — handles /sub/* (subscription configs) and /yookassa/webhook (payments)
+  - type: web
+    name: metla-vpn-web
+    runtime: node
+    plan: free # or starter for production
+    buildCommand: npm install
+    startCommand: node web.js
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
+      - key: PORT
+        value: 10000
+      - key: TGBOT_TOKEN
+        sync: false
+      - key: DB_NAME
+        fromDatabase:
+          name: metla-vpn-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: metla-vpn-db
+          property: user
+      - key: DB_PASS
+        fromDatabase:
+          name: metla-vpn-db
+          property: password
+      - key: DB_HOST
+        fromDatabase:
+          name: metla-vpn-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: metla-vpn-db
+          property: port
+      - key: MARZBAN_WEB_ADMIN
+        sync: false
+      - key: MARZBAN_LOGIN
+        sync: false
+      - key: MARZBAN_PASSWORD
+        sync: false
+      - key: USERNAME_SLUG
+        value: tg_
+      - key: MAX_DEVICES
+        sync: false
+      - key: DATA_LIMIT
+        sync: false
+      - key: YOOKASSA_SHOP_ID
+        sync: false
+      - key: YOOKASSA_KEY
+        sync: false
+      - key: YOOKASSA_TK
+        sync: false
+      - key: MENU_BTN_TEXT
+        value: "📲 Меню"
+      - key: DAYS_FROM_REF
+        sync: false
+      - key: PARTNER_PERCENT
+        sync: false
+      - key: TIME_ZONE
+        value: "3"
+      - key: YOOMONEY_NUM
+        sync: false
+
+  # 2. Background Worker — Telegram bot (long polling)
+  - type: worker
+    name: metla-vpn-bot
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node bot.js
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
+      - key: TGBOT_TOKEN
+        sync: false
+      - key: DB_NAME
+        fromDatabase:
+          name: metla-vpn-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: metla-vpn-db
+          property: user
+      - key: DB_PASS
+        fromDatabase:
+          name: metla-vpn-db
+          property: password
+      - key: DB_HOST
+        fromDatabase:
+          name: metla-vpn-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: metla-vpn-db
+          property: port
+      - key: MARZBAN_WEB_ADMIN
+        sync: false
+      - key: MARZBAN_LOGIN
+        sync: false
+      - key: MARZBAN_PASSWORD
+        sync: false
+      - key: HEAD_BOT_ADMIN_IDS
+        sync: false
+      - key: SERVICE_NAME
+        value: "Metla VPN"
+      - key: BACK_BTN_TEXT
+        value: "⬅️ Назад"
+      - key: CANCEL_BTN_TEXT
+        value: "❌ Отмена"
+      - key: MENU_BTN_TEXT
+        value: "📲 Меню"
+      - key: DEF_ANSWERTEXT
+        value: "Ошибка"
+      - key: USERNAME_SLUG
+        value: tg_
+      - key: MAX_DEVICES
+        sync: false
+      - key: DATA_LIMIT
+        sync: false
+      - key: PARTNER_PERCENT
+        sync: false
+      - key: PARTNER_MIN_WITHDRAW
+        sync: false
+      - key: TRY_DAYS
+        sync: false
+      - key: TIME_ZONE
+        value: "3"
+      - key: YOOKASSA_SHOP_ID
+        sync: false
+      - key: YOOKASSA_KEY
+        sync: false
+      - key: YOOMONEY_NUM
+        sync: false
+
+  # 3. Background Worker — cron (subscription expiry notifications)
+  - type: worker
+    name: metla-vpn-cron
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node cron.js
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
+      - key: TGBOT_TOKEN
+        sync: false
+      - key: DB_NAME
+        fromDatabase:
+          name: metla-vpn-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: metla-vpn-db
+          property: user
+      - key: DB_PASS
+        fromDatabase:
+          name: metla-vpn-db
+          property: password
+      - key: DB_HOST
+        fromDatabase:
+          name: metla-vpn-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: metla-vpn-db
+          property: port
+      - key: HOURS_FOR_SUB_EXPIRE_NOTF
+        value: "0,1,24"
+      - key: MENU_BTN_TEXT
+        value: "📲 Меню"
+      - key: TIME_ZONE
+        value: "3"

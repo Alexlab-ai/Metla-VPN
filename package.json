@@ -1,0 +1,33 @@
+{
+  "name": "example",
+  "version": "1.0.0",
+  "description": "",
+  "main": "bot.js",
+  "type": "module",
+  "dependencies": {
+    "3x-ui": "^2.1.1",
+    "chalk": "^5.6.2",
+    "dotenv": "^16.3.1",
+    "ejs": "^3.1.10",
+    "express": "^4.19.2",
+    "express-ejs-layouts": "^2.5.1",
+    "http": "^0.0.1-security",
+    "node-telegram-bot-api": "^0.64.0",
+    "pg": "^8.11.3",
+    "pg-hstore": "^2.3.4",
+    "qr-code-styling": "^1.6.0-rc.1",
+    "sequelize": "^6.35.0",
+    "sha1": "^1.1.1",
+    "uniqid": "^5.4.0",
+    "unique-string": "^3.0.0",
+    "universal-hmac-sha256-js": "^3.0.2"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.10.9"
+  },
+  "scripts": {
+    "test": "nodemon bot.js"
+  },
+  "author": "Telegram: @afanasev95",
+  "license": "ISC"
+}

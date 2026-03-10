@@ -1,0 +1,26 @@
+[
+    {
+        "months": 1,
+        "price": 169,
+        "text_start": "🟡",
+        "text": ""
+    },
+    {
+        "months": 3,
+        "price": 449,
+        "text_start": "🟢",
+        "text": "(149 ₽/мес)"
+    },
+    {
+        "months": 6,
+        "price": 749,
+        "text_start": "🟣",
+        "text": "(125 ₽/мес)"
+    },
+    {
+        "months": 12,
+        "price": 1299,
+        "text_start": "🏆",
+        "text": "(109 ₽/мес)"
+    }
+]

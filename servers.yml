@@ -1,0 +1,26 @@
+# ==============================================
+# Metla VPN — Server Registry
+# Add new VPN nodes here, then run deploy workflow
+# ==============================================
+
+# Main server (Marzban panel + Bot)
+main:
+  host: ""                    # IP address of main server
+  user: "root"
+  description: "Marzban panel + Telegram bot"
+
+# VPN Nodes (Marzban-node instances)
+# To add a new node:
+#   1. Buy a VPS in desired country
+#   2. Add its details below
+#   3. Run: GitHub Actions -> Deploy Node -> select node name
+#   4. Add node IP in Marzban panel -> Nodes
+nodes:
+  # Example:
+  # germany-1:
+  #   host: "1.2.3.4"
+  #   user: "root"
+  #   country: "DE"
+  #   country_name: "Germany"
+  #   provider: "Hetzner"
+  #   description: "Frankfurt, Hetzner CX22"

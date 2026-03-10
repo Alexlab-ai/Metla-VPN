@@ -26,7 +26,13 @@
     "@types/pg": "^8.10.9"
   },
   "scripts": {
-    "test": "nodemon bot.js"
+    "start": "node bot.js",
+    "start:web": "node web.js",
+    "start:cron": "node cron.js",
+    "dev": "nodemon bot.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "author": "Telegram: @afanasev95",
   "license": "ISC"

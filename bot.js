@@ -271,7 +271,7 @@ async function botOn(event, eventType)
         // START BOT LOGIC
         if(inCommand == "/start")
         {
-            answText = "Привет!";
+            answText = "Привет";
             try
             {
                 answText = (await fs.readFileSync('start_text.txt')).toString();

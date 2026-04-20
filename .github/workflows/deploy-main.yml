@@ -29,65 +29,98 @@ on:
 
 jobs:
   deploy:
-    runs-on: [self-hosted, linux, metla-vpn]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploy locally
+      - name: Sync files to server
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.action == 'deploy' || inputs.action == 'update' }}
         run: |
           set -euo pipefail
 
-          APP_DIR="/opt/vpn_bot"
-          ACTION="${{ inputs.action || 'deploy' }}"
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
-          export NVM_DIR="$HOME/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-          if command -v nvm >/dev/null 2>&1; then
-            nvm use default >/dev/null
-          fi
+          ssh -i ~/.ssh/deploy_key \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            'mkdir -p /opt/vpn_bot'
 
-          case "$ACTION" in
-            deploy|update)
-              echo "=== Deploying Metla VPN ==="
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            --exclude ".git" \
+            --exclude ".env" \
+            --exclude "node_modules" \
+            --exclude "logs" \
+            "$GITHUB_WORKSPACE/" \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/vpn_bot/"
 
-              mkdir -p "$APP_DIR"
-              rsync -a --delete \
-                --exclude ".git" \
-                --exclude ".env" \
-                --exclude "node_modules" \
-                --exclude "logs" \
-                "$GITHUB_WORKSPACE/" "$APP_DIR/"
+      - name: Run deploy commands
+        run: |
+          set -euo pipefail
 
-              cd "$APP_DIR"
-              npm install --omit=dev
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
-              pm2 startOrReload ecosystem.config.cjs --env production
-              pm2 save
+          ssh -i ~/.ssh/deploy_key "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" <<'EOF'
+            set -euo pipefail
+            APP_DIR="/opt/vpn_bot"
+            ACTION="${{ inputs.action || 'deploy' }}"
 
-              echo "=== Deploy complete ==="
-              pm2 status
-              ;;
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            if command -v nvm >/dev/null 2>&1; then
+              nvm use default >/dev/null
+            fi
 
-            restart)
-              echo "=== Restarting services ==="
-              cd "$APP_DIR"
-              pm2 restart ecosystem.config.cjs --env production
-              pm2 status
-              ;;
+            case "$ACTION" in
+              deploy|update)
+                echo "=== Deploying Metla VPN ==="
 
-            logs)
-              echo "=== Recent logs ==="
-              pm2 logs --lines 50 --nostream
-              ;;
-          esac
+                cd "$APP_DIR"
+                npm install --omit=dev
+
+                pm2 startOrReload ecosystem.config.cjs --env production
+                pm2 save
+
+                echo "=== Deploy complete ==="
+                pm2 status
+                ;;
+
+              restart)
+                echo "=== Restarting services ==="
+                cd "$APP_DIR"
+                pm2 restart ecosystem.config.cjs --env production
+                pm2 status
+                ;;
+
+              logs)
+                echo "=== Recent logs ==="
+                pm2 logs --lines 50 --nostream
+                ;;
+            esac
+          EOF
 
       - name: Health check
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.action != 'logs' }}
         run: |
-          sleep 5
-          echo "=== PM2 Status ==="
-          pm2 status
-          echo ""
-          echo "=== Bot logs (last 10 lines) ==="
-          pm2 logs Bot --lines 10 --nostream
+          set -euo pipefail
+
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+          ssh -i ~/.ssh/deploy_key "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" <<'EOF'
+            set -euo pipefail
+            sleep 5
+            echo "=== PM2 Status ==="
+            pm2 status
+            echo ""
+            echo "=== Bot logs (last 10 lines) ==="
+            pm2 logs Bot --lines 10 --nostream
+          EOF

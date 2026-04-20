@@ -38,14 +38,14 @@ sudo apt install postgresql postgresql-client
 sudo systemctl enable postgresql.service && sudo systemctl start postgresql.service
 sudo netstat -tunlp | grep 5432
 sudo psql --version
-su - postgres -c "psql -c 'CREATE USER tgvpnbot WITH PASSWORD 'Y21cNk42AAlr'; CREATE DATABASE tgvpnbot; GRANT ALL PRIVILEGES ON DATABASE tgvpnbot TO tgvpnbot; GRANT ALL ON SCHEMA public TO tgvpnbot; ALTER DATABASE tgvpnbot OWNER TO tgvpnbot;'"
+su - postgres -c "psql -c 'CREATE USER tgvpnbot WITH PASSWORD 'Y21cAlr'; CREATE DATABASE tgvpnbot; GRANT ALL PRIVILEGES ON DATABASE tgvpnbot TO tgvpnbot; GRANT ALL ON SCHEMA public TO tgvpnbot; ALTER DATABASE tgvpnbot OWNER TO tgvpnbot;'"
 su - postgres -c "psql -c 'SHOW config_file;'"
 echo "Установка завершена. Перезагрузите терминал"
 # sudo su - postgres
 # СОЗДАНИЕ ЮСЕРА И БАЗЫ ДАННЫХ
 # su - postgres
 # psql
-# CREATE USER tgvpnbot WITH PASSWORD 'Y2_1cNk42:AAlr'; CREATE DATABASE tgvpnbot; GRANT ALL PRIVILEGES ON DATABASE tgvpnbot TO tgvpnbot; GRANT ALL ON SCHEMA public TO tgvpnbot; ALTER DATABASE tgvpnbot OWNER TO tgvpnbot;
+# CREATE USER tgvpnbot WITH PASSWORD 'Y2_lr'; CREATE DATABASE tgvpnbot; GRANT ALL PRIVILEGES ON DATABASE tgvpnbot TO tgvpnbot; GRANT ALL ON SCHEMA public TO tgvpnbot; ALTER DATABASE tgvpnbot OWNER TO tgvpnbot;
 # REMOTE ACCESS
 # su - postgres -c "psql -c 'SHOW config_file;'"
 # listen_addresses = '*'

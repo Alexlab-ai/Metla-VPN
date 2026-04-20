@@ -19,85 +19,75 @@ on:
     paths:
       - '*.js'
       - 'package.json'
+      - 'ecosystem.config.cjs'
       - 'tarifs.json'
       - 'start_text.txt'
+      - 'servers.yml'
+      - 'masks.txt'
+      - 'files/**'
+      - 'static/**'
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, metla-vpn]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploy to main server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.MAIN_SERVER_HOST }}
-          username: ${{ secrets.MAIN_SERVER_USER }}
-          key: ${{ secrets.MAIN_SSH_PRIVATE_KEY }}
-          script_stop: true
-          script: |
-            APP_DIR="/opt/metla-vpn"
-            ACTION="${{ inputs.action || 'deploy' }}"
+      - name: Deploy locally
+        run: |
+          set -euo pipefail
 
-            case "$ACTION" in
-              deploy|update)
-                echo "=== Deploying Metla VPN ==="
+          APP_DIR="/opt/vpn_bot"
+          ACTION="${{ inputs.action || 'deploy' }}"
 
-                # Clone or pull
-                if [ -d "$APP_DIR" ]; then
-                  cd "$APP_DIR"
-                  git fetch origin main
-                  git reset --hard origin/main
-                else
-                  git clone https://github.com/${{ github.repository }}.git "$APP_DIR"
-                  cd "$APP_DIR"
-                fi
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          if command -v nvm >/dev/null 2>&1; then
+            nvm use default >/dev/null
+          fi
 
-                # Install dependencies
-                export NVM_DIR="$HOME/.nvm"
-                [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-                npm install --production
+          case "$ACTION" in
+            deploy|update)
+              echo "=== Deploying Metla VPN ==="
 
-                # Restart with PM2
-                if pm2 describe metla-bot > /dev/null 2>&1; then
-                  pm2 restart metla-bot
-                  pm2 restart metla-web 2>/dev/null || true
-                  pm2 restart metla-cron 2>/dev/null || true
-                else
-                  pm2 start bot.js --name metla-bot
-                  pm2 start web.js --name metla-web
-                  pm2 start cron.js --name metla-cron
-                  pm2 save
-                fi
+              mkdir -p "$APP_DIR"
+              rsync -a --delete \
+                --exclude ".git" \
+                --exclude ".env" \
+                --exclude "node_modules" \
+                --exclude "logs" \
+                "$GITHUB_WORKSPACE/" "$APP_DIR/"
 
-                echo "=== Deploy complete ==="
-                pm2 status
-                ;;
+              cd "$APP_DIR"
+              npm install --omit=dev
 
-              restart)
-                echo "=== Restarting services ==="
-                pm2 restart metla-bot metla-web metla-cron
-                pm2 status
-                ;;
+              pm2 startOrReload ecosystem.config.cjs --env production
+              pm2 save
 
-              logs)
-                echo "=== Recent logs ==="
-                pm2 logs --lines 50 --nostream
-                ;;
-            esac
+              echo "=== Deploy complete ==="
+              pm2 status
+              ;;
+
+            restart)
+              echo "=== Restarting services ==="
+              cd "$APP_DIR"
+              pm2 restart ecosystem.config.cjs --env production
+              pm2 status
+              ;;
+
+            logs)
+              echo "=== Recent logs ==="
+              pm2 logs --lines 50 --nostream
+              ;;
+          esac
 
       - name: Health check
-        if: inputs.action != 'logs'
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.MAIN_SERVER_HOST }}
-          username: ${{ secrets.MAIN_SERVER_USER }}
-          key: ${{ secrets.MAIN_SSH_PRIVATE_KEY }}
-          script: |
-            sleep 5
-            echo "=== PM2 Status ==="
-            pm2 status
-            echo ""
-            echo "=== Bot logs (last 10 lines) ==="
-            pm2 logs metla-bot --lines 10 --nostream
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.action != 'logs' }}
+        run: |
+          sleep 5
+          echo "=== PM2 Status ==="
+          pm2 status
+          echo ""
+          echo "=== Bot logs (last 10 lines) ==="
+          pm2 logs Bot --lines 10 --nostream

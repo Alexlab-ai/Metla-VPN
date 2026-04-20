@@ -1,0 +1,54 @@
+<html><head>
+    <title>Redirect</title>
+    <meta name="charset" content="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <script>
+        const referralCode = new URLSearchParams(window.location.search).get('url');
+        window.location.href = 'v2raytun://import/' + referralCode;
+
+        setTimeout(() => {
+            const fallbackElement = document.getElementById('fallback');
+            if (fallbackElement) {
+                fallbackElement.style.display = 'block';
+            } else {
+                console.error('id="fallback" not found');
+            }
+        }, 2000);
+
+        function redirectToStore() {
+            const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+            const isAndroid = /Android/i.test(navigator.userAgent);
+
+            if (isIOS) {
+                window.location.href = 'https://apps.apple.com/ru/app/v2raytun/id6476628951?l=en-GB';
+            } else if (isAndroid) {
+                window.location.href = 'https://play.google.com/store/apps/details?id=com.v2raytun.android&hl=ru';
+            } else {
+                window.location.href = 'https://storage.fcknrockn.net/v2RayTun_Setup.exe';
+            }
+        }
+    </script></body></html>

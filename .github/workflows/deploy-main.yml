@@ -117,6 +117,12 @@ jobs:
 
           ssh -i ~/.ssh/deploy_key "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" <<'EOF'
             set -euo pipefail
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            if command -v nvm >/dev/null 2>&1; then
+              nvm use default >/dev/null
+            fi
+
             sleep 5
             echo "=== PM2 Status ==="
             pm2 status

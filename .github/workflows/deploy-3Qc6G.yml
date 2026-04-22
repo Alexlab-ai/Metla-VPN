@@ -53,7 +53,7 @@ jobs:
                   git checkout "$BRANCH"
                   git reset --hard "origin/$BRANCH"
                 else
-                  git clone -b "$BRANCH" <https://github.com/$>{{ github.repository }}.git "$APP_DIR"
+                  git clone -b "$BRANCH" https://github.com/${{ github.repository }}.git "$APP_DIR"
                   cd "$APP_DIR"
                 fi
 

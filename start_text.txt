@@ -2,7 +2,6 @@
 <b>{service_name}</b> — быстрый и стабильный VPN.
 
 ⚡ Высокая скорость
-🔋  Не нагружает батарею
 📱 iOS / Android / Windows / macOS / Android TV
 
 🎁 Пробный доступ — 7 дней

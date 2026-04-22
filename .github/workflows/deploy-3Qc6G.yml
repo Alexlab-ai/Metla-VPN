@@ -1,0 +1,102 @@
+name: Deploy 3Qc6G
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - deploy
+          - restart
+          - update
+          - logs
+
+  push:
+    branches:
+      - claude/vpn-server-integration-3Qc6G
+    paths:
+      - '*.js'
+      - 'package.json'
+      - 'tarifs.json'
+      - 'start_text.txt'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: claude/vpn-server-integration-3Qc6G
+
+      - name: Deploy to main server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.MAIN_SERVER_HOST }}
+          username: ${{ secrets.MAIN_SERVER_USER }}
+          key: ${{ secrets.MAIN_SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            APP_DIR="/opt/metla-vpn"
+            BRANCH="claude/vpn-server-integration-3Qc6G"
+            ACTION="${{ inputs.action || 'deploy' }}"
+
+            case "$ACTION" in
+              deploy|update)
+                echo "=== Deploying Metla VPN from $BRANCH ==="
+
+                if [ -d "$APP_DIR" ]; then
+                  cd "$APP_DIR"
+                  git fetch origin "$BRANCH"
+                  git checkout "$BRANCH"
+                  git reset --hard "origin/$BRANCH"
+                else
+                  git clone -b "$BRANCH" <https://github.com/$>{{ github.repository }}.git "$APP_DIR"
+                  cd "$APP_DIR"
+                fi
+
+                export NVM_DIR="$HOME/.nvm"
+                [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+                npm install --production
+
+                if pm2 describe metla-bot > /dev/null 2>&1; then
+                  pm2 restart metla-bot
+                  pm2 restart metla-web 2>/dev/null || true
+                  pm2 restart metla-cron 2>/dev/null || true
+                else
+                  pm2 start bot.js --name metla-bot
+                  pm2 start web.js --name metla-web
+                  pm2 start cron.js --name metla-cron
+                  pm2 save
+                fi
+
+                echo "=== Deploy complete ==="
+                pm2 status
+                ;;
+              restart)
+                echo "=== Restarting services ==="
+                pm2 restart metla-bot metla-web metla-cron
+                pm2 status
+                ;;
+              logs)
+                echo "=== Recent logs ==="
+                pm2 logs --lines 50 --nostream
+                ;;
+            esac
+
+      - name: Health check
+        if: inputs.action != 'logs'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.MAIN_SERVER_HOST }}
+          username: ${{ secrets.MAIN_SERVER_USER }}
+          key: ${{ secrets.MAIN_SSH_PRIVATE_KEY }}
+          script: |
+            sleep 5
+            echo "=== PM2 Status ==="
+            pm2 status
+            echo ""
+            echo "=== Bot logs (last 10 lines) ==="
+            pm2 logs metla-bot --lines 10 --nostream

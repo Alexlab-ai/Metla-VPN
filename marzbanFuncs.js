@@ -244,7 +244,6 @@ export const marzbanFuncs = {
         var subUser = await this.getExstUser(botUser);
         if(subUser === false)
         {
-            if(subUser.subscription_url) subUser.subscription_url = subUser.subscription_url.replace(/\/s\//, '/sub/');
             subUser = await this.createUser(botUser, subDays);
         }
         return subUser;
